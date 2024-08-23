@@ -1,24 +1,19 @@
-﻿using NSubstitute.Core;
-using NSubstitute;
-using OKE.Domain.Repositories;
+﻿using FluentAssertions;
 using FluentValidation.TestHelper;
-using static OKE.Application.Handlers.Actors.Get;
-using Query = OKE.Application.Handlers.Actors.Get.Query;
-using Handler = OKE.Application.Handlers.Actors.Get.Handler;
-using FluentAssertions;
+using NSubstitute;
 using OKE.Application.Errors;
-using StackExchange.Redis;
 using OKE.Doamin.Models;
 using OKE.Domain.Models;
+using OKE.Domain.Repositories;
+using static OKE.Application.Handlers.Actors.Get;
 using static OKE.Application.Handlers.Movies.List;
-using System.Text.Json;
+using Handler = OKE.Application.Handlers.Actors.Get.Handler;
+using Query = OKE.Application.Handlers.Actors.Get.Query;
 
 namespace OKE.Application.Tests.Handlers.Actors;
 public class GetTests
 {
     private readonly IActorRepository _actorRepository;
-    private readonly IConnectionMultiplexer _connectionMultiplexer;
-    private readonly IDatabase _database;
 
     private readonly Validator _validator;
     private readonly Handler _handler;
@@ -26,10 +21,7 @@ public class GetTests
     public GetTests()
     {
         _actorRepository = Substitute.For<IActorRepository>();
-        _connectionMultiplexer = Substitute.For<IConnectionMultiplexer>();
-        _database = Substitute.For<IDatabase>();
-        _connectionMultiplexer.GetDatabase().Returns(_database);
-        _handler = new Handler(_actorRepository, _connectionMultiplexer);
+        _handler = new Handler(_actorRepository);
         _validator = new Validator(_actorRepository);
     }
 
@@ -98,31 +90,12 @@ public class GetTests
     }
 
     [Fact]
-    public async Task HandleShouldReturnCachedActor()
-    {
-        // Arrange
-        var query = new Query("ExistingActor");
-        var cachedActorDto = new ActorDto("ExistingActor", new List<MovieDto>());
-        var cachedActorJson = JsonSerializer.Serialize(cachedActorDto);
-        _database.StringGetAsync(Arg.Is<RedisKey>("actor_ExistingActor")).Returns(cachedActorJson);
-
-        // Act
-        var result = await _handler.Handle(query, CancellationToken.None);
-
-        // Assert
-        result.IsSuccess.Should().BeTrue();
-        result.Value.Should().BeEquivalentTo(cachedActorDto);
-        await _actorRepository.DidNotReceive().GetAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task HandleShouldReturnActorFromDatabaseAndCacheIt()
+    public async Task HandleShouldReturnActorFromDatabase()
     {
         // Arrange
         var query = new Query("NewActor");
-        var actor = new Actor { FullName = "NewActor", Movies = new List<Movie> { new Movie { Title = "Movie1", Description = "Description1" } } };
-        var actorDto = new ActorDto("NewActor", new List<MovieDto> { new MovieDto("Movie1", "Description1") });
-        _database.StringGetAsync(Arg.Is<RedisKey>("actor_ExistingActor")).Returns(new RedisValue());
+        var actor = new Actor { FullName = "NewActor", Movies = [new() { Title = "Movie1", Description = "Description1" }] };
+        var actorDto = new ActorDto("NewActor", [new("Movie1", "Description1") ]);
         _actorRepository.GetAsync(query.ActorName, Arg.Any<CancellationToken>()).Returns(actor);
 
         // Act
@@ -131,7 +104,6 @@ public class GetTests
         // Assert
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().BeEquivalentTo(actorDto);
-        await _actorRepository.Received(1).GetAsync(Arg.Is<string>("NewActor"), Arg.Any<CancellationToken>());
-        await _database.Received(1).StringSetAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue>());
+        await _actorRepository.Received(1).GetAsync(Arg.Is("NewActor"), Arg.Any<CancellationToken>());
     }
 }

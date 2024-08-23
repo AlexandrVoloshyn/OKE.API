@@ -6,11 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace OKE.Application.Errors;
-public class NotFoundError : Error
+public class NotFoundError(string message) : Error(message)
 {
     public const string ErrorCode = "404";
-
-    public NotFoundError(string message) : base(message)
-    {
-    }
 }

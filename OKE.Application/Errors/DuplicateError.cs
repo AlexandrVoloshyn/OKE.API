@@ -1,10 +1,7 @@
 ﻿using FluentResults;
 
 namespace OKE.Application.Errors;
-public class DuplicateError : Error
+public class DuplicateError(string message) : Error(message)
 {
     public const string ErrorCode = "409";
-    public DuplicateError(string message) : base(message)
-    {
-    }
 }

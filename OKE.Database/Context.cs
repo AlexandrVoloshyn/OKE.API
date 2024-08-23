@@ -3,12 +3,8 @@ using OKE.Doamin.Models;
 using OKE.Domain.Models;
 
 namespace OKE.Database;
-public class Context : DbContext
+public class Context(DbContextOptions options) : DbContext(options)
 {
-    public Context(DbContextOptions options) : base(options)
-    {
-    }
-
     public DbSet<Movie> Movies { get; set; }
     public DbSet<Actor> Actors { get; set; }
 
@@ -51,7 +47,7 @@ public class Context : DbContext
             builder.HasMany(e => e.Movies).WithMany(e => e.Cast);
             builder.Property(e => e.FullName).IsRequired();
 
-            builder.HasData(new Actor[] {
+            builder.HasData([
                 new Actor() {
                     Id = -1,
                     FullName = "Keanu Reeves",
@@ -61,7 +57,7 @@ public class Context : DbContext
                     Id = -2,
                     FullName = "Laurence Fishburne",
                 }
-            });
+            ]);
         });
     }
 }

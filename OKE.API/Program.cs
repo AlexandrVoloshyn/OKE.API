@@ -1,15 +1,13 @@
 using FluentValidation;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
+using OKE.API.Endpoints;
 using OKE.API.Extensions;
-using OKE.API.Filters;
 using OKE.API.Middlewares;
 using OKE.Database;
 using OKE.Database.Repositories;
 using OKE.Domain.Repositories;
 using Serilog;
-using Serilog.Extensions.Logging;
-using StackExchange.Redis;
 using static OKE.Application.Handlers.Movies.List;
 using static System.Net.Mime.MediaTypeNames;
 
@@ -41,17 +39,8 @@ try
     builder.Services.AddDbContext<Context>(options =>
         options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")));
 
-    builder.Services.AddSingleton<IConnectionMultiplexer>(
-        ConnectionMultiplexer.Connect(
-            ConfigurationOptions.Parse(builder.Configuration.GetConnectionString("Redis"))));
-
     builder.Services.AddScoped<IMovieRepository, MovieRepository>();
     builder.Services.AddScoped<IActorRepository, ActorRepository>();
-
-    builder.Services.AddControllers(opt =>
-    {
-        opt.Filters.Add(typeof(ResultFilter));
-    });
 
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(c =>
@@ -75,7 +64,7 @@ try
     {
         app.UseExceptionHandler(exceptionHandlerApp =>
         {
-            
+
             exceptionHandlerApp.Run(async context =>
             {
                 context.Response.StatusCode = StatusCodes.Status500InternalServerError;
@@ -96,10 +85,10 @@ try
 
     app.UseHttpsRedirection();
 
-    app.UseAuthorization();
     app.MapHealthChecks("/health");
 
-    app.MapControllers();
+    app.MapActorEndpoints();
+    app.MapMoviesEndpoints();
 
     await app.MigrateAsync();
 

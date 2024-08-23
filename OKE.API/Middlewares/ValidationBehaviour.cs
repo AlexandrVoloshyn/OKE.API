@@ -5,30 +5,24 @@ using OKE.Application.Errors;
 
 namespace OKE.API.Middlewares;
 
-public class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
+public sealed class ValidationBehavior<TRequest, TResponse>(IEnumerable<IValidator<TRequest>> Validators) : IPipelineBehavior<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
     where TResponse : ResultBase<TResponse>, new()
 {
-    private IEnumerable<IValidator<TRequest>> _validators;
 
     private static Dictionary<string, Func<string, Error>> ErrorMap =>
         new()
         {
-            [ProcessingError.ErrorCode] = message => new ProcessingError(message),
             [DuplicateError.ErrorCode] = message => new DuplicateError(message),
             [NotFoundError.ErrorCode] = message => new NotFoundError(message)
         };
-    public ValidationBehavior(IEnumerable<IValidator<TRequest>> validators)
-    {
-        _validators = validators;
-    }
 
     public async Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
     {
         var context = new ValidationContext<TRequest>(request);
 
         var validationResults = await Task.WhenAll(
-            _validators.Select(validator => validator.ValidateAsync(context)));
+            Validators.Select(validator => validator.ValidateAsync(context)));
 
         var failures = validationResults.SelectMany(r => r.Errors)
             .GroupBy(
